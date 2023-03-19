@@ -3,6 +3,56 @@ resource "azurerm_resource_group" "rg" {
   location = var.location_name
 }
 
+resource "azurerm_kubernetes_cluster" "azkc" {
+  name                = "azkc-aks1"
+  location            = azurerm_resource_group.azkc.location
+  resource_group_name = azurerm_resource_group.azkc.name
+  dns_prefix          = "azkcaks1"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 1
+    vm_size    = "Standard_D2_v2"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = {
+    Environment = "Production"
+  }
+}
+
+output "client_certificate" {
+  value     = azurerm_kubernetes_cluster.azkc.kube_config.0.client_certificate
+  sensitive = true
+}
+
+output "kube_config" {
+  value = azurerm_kubernetes_cluster.azkc.kube_config_raw
+
+  sensitive = true
+}
+
+resource "azurerm_network_security_group" "secgp" {
+  name                = "secgp-security-group"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+
+    security_rule {
+    name                       = "httprule"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
 resource "azurerm_virtual_network" "vnet" {
   name                = var.network_name
   address_space       = ["10.0.0.0/16"]
@@ -64,24 +114,14 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 }
 
-resource "azurerm_resource_group" "example" {
-  name     = "example-resources"
-  location = "West Europe"
-}
-
-resource "azurerm_container_registry" "acr" {
-  name                = "containerRegistry1"
+resource "azurerm_container_registry" "acr03" {
+  name                = "containerSantiRegistry1"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Premium"
   admin_enabled       = false
   georeplications {
     location                = "East US"
-    zone_redundancy_enabled = true
-    tags                    = {}
-  }
-  georeplications {
-    location                = "North Europe"
     zone_redundancy_enabled = true
     tags                    = {}
   }
@@ -96,3 +136,4 @@ resource "azurerm_public_ip" "pip" {
   tags = {
     environment = "Production"
   }
+}
